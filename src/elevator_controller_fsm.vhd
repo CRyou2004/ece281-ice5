@@ -67,69 +67,57 @@
 --|    s_<signal name>          = state name
 --|
 --+----------------------------------------------------------------------------
-library IEEE;
-use IEEE.STD_LOGIC_1164.ALL;
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 entity elevator_controller_fsm is
-    Port ( i_clk     : in  STD_LOGIC;
-           i_reset   : in  STD_LOGIC;
-           i_stop    : in  STD_LOGIC;
-           i_up_down : in  STD_LOGIC;
-           o_floor   : out STD_LOGIC_VECTOR (3 downto 0)		   
-		 );
+    Port ( 
+        i_clk     : in  std_logic;
+        i_reset   : in  std_logic; -- synchronous
+        i_stop    : in  std_logic;
+        i_up_down : in  std_logic;
+        o_floor   : out std_logic_vector(3 downto 0);
+        f_Q       : out std_logic_vector(3 downto 0);
+        f_Q_next  : out std_logic_vector(3 downto 0)
+    );
 end elevator_controller_fsm;
 
- 
-architecture Behavioral of elevator_controller_fsm is
-
-    -- Below you create a new variable type! You also define what values that 
-    -- variable type can take on. Now you can assign a signal as 
-    -- "sm_floor" the same way you'd assign a signal as std_logic
-	type sm_floor is (s_floor1, s_floor2, s_floor3, s_floor4);
-	
-	-- Here you create variables that can take on the values defined above. Neat!	
-	signal f_Q, f_Q_next: sm_floor;
-
+architecture behavioral of elevator_controller_fsm is
+    signal current_floor, next_floor : integer range 1 to 4 := 2;
 begin
 
-	-- CONCURRENT STATEMENTS ------------------------------------------------------------------------------
-	
-	-- Next State Logic
-    f_Q_next <= s_floor2 when (f_Q = s_floor1 and i_up_down = '1') else  -- Going up
-                s_floor3 when (f_Q = s_floor2 and i_up_down = '1') else
-                s_floor1 when (f_Q = s_floor2 and i_up_down = '0') else
-                s_floor4 when (f_Q = s_floor3 and i_up_down = '1') else
-                s_floor2 when (f_Q = s_floor3 and i_up_down = '0') else
-                s_floor3 when (f_Q = s_floor4 and i_up_down = '0') else
-                f_Q; -- default case
-	-- Output logic
-    with f_Q select
-    o_floor <= "0001" when s_floor1,
-               "0010" when s_floor2,  -- Floor 2
-               "0100" when s_floor3,  -- Floor 3
-               "1000" when s_floor4,  -- Floor 4
-               "0001" when others;    -- Default to Floor 1
-	-------------------------------------------------------------------------------------------------------
-	
-	-- PROCESSES ------------------------------------------------------------------------------------------	
-	
-	-- State register ------------
-	
-	process(i_clk)
+    process(i_clk)
     begin
         if rising_edge(i_clk) then
             if i_reset = '1' then
-                f_Q <= s_floor2;  -- Reset to Floor 2
-            elsif i_stop = '0' then
-                f_Q <= f_Q_next;  -- Update state only if not stopped
+                current_floor <= 2;
+            else
+                current_floor <= next_floor;
             end if;
         end if;
     end process;
-	-------------------------------------------------------------------------------------------------------
-	
-	
 
+    process(current_floor, i_stop, i_up_down)
+    begin
+        next_floor <= current_floor;
+        if i_stop = '0' then
+            if i_up_down = '1' then
+                if current_floor < 4 then
+                    next_floor <= current_floor + 1;
+                end if;
+            else
+                if current_floor > 1 then
+                    next_floor <= current_floor - 1;
+                end if;
+            end if;
+        end if;
+    end process;
+    
+    o_floor  <= std_logic_vector(to_unsigned(current_floor, 4));
+    f_Q      <= std_logic_vector(to_unsigned(current_floor, 4));
+    f_Q_next <= std_logic_vector(to_unsigned(next_floor, 4));
 
+end behavioral;
 
-end Behavioral;
 
