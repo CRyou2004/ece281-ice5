@@ -84,40 +84,49 @@ entity elevator_controller_fsm is
 end elevator_controller_fsm;
 
 architecture behavioral of elevator_controller_fsm is
-    signal current_floor, next_floor : integer range 1 to 4 := 2;
+    type sm_floor is (s_floor1, s_floor2, s_floor3, s_floor4);
+    signal f_Q_reg, f_Q_next_reg : sm_floor := s_floor2;
 begin
 
     process(i_clk)
     begin
         if rising_edge(i_clk) then
             if i_reset = '1' then
-                current_floor <= 2;
-            else
-                current_floor <= next_floor;
+                f_Q_reg <= s_floor2;
+            elsif i_stop = '0' then
+                f_Q_reg <= f_Q_next_reg;
             end if;
         end if;
     end process;
 
-    process(current_floor, i_stop, i_up_down)
-    begin
-        next_floor <= current_floor;
-        if i_stop = '0' then
-            if i_up_down = '1' then
-                if current_floor < 4 then
-                    next_floor <= current_floor + 1;
-                end if;
-            else
-                if current_floor > 1 then
-                    next_floor <= current_floor - 1;
-                end if;
-            end if;
-        end if;
-    end process;
-    
-    o_floor  <= std_logic_vector(to_unsigned(current_floor, 4));
-    f_Q      <= std_logic_vector(to_unsigned(current_floor, 4));
-    f_Q_next <= std_logic_vector(to_unsigned(next_floor, 4));
+    f_Q_next_reg <= s_floor2 when (f_Q_reg = s_floor1 and i_up_down = '1') else
+                    s_floor3 when (f_Q_reg = s_floor2 and i_up_down = '1') else
+                    s_floor4 when (f_Q_reg = s_floor3 and i_up_down = '1') else
+                    s_floor4 when (f_Q_reg = s_floor4 and i_up_down = '1') else
+                    s_floor3 when (f_Q_reg = s_floor4 and i_up_down = '0') else
+                    s_floor2 when (f_Q_reg = s_floor3 and i_up_down = '0') else
+                    s_floor1 when (f_Q_reg = s_floor2 and i_up_down = '0') else
+                    s_floor1 when (f_Q_reg = s_floor1 and i_up_down = '0') else
+                    f_Q_reg;
 
+    with f_Q_reg select
+        o_floor <= "0001" when s_floor1,
+                   "0010" when s_floor2,
+                   "0011" when s_floor3,
+                   "0100" when s_floor4,
+                   "0001" when others;
+
+    f_Q <= "0001" when f_Q_reg = s_floor1 else
+           "0010" when f_Q_reg = s_floor2 else
+           "0011" when f_Q_reg = s_floor3 else
+           "0100";
+
+    f_Q_next <= "0001" when f_Q_next_reg = s_floor1 else
+              "0010" when f_Q_next_reg = s_floor2 else
+              "0011" when f_Q_next_reg = s_floor3 else
+              "0100";
+              
 end behavioral;
+
 
 
